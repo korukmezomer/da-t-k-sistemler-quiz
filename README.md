@@ -45,6 +45,20 @@ Bu ayarla:
 - buna ek olarak `0-300ms` arası rastgele jitter eklenir
 - aynı mantık stok rezervasyonu (`reserveStock`) için de uygulanır
 
+## LAB-4: Timeout ve Deadline
+
+Sipariş yerleştirme için toplam süre bütçesi ve stok rezervasyonu için ayrı timeout tanımlanabilir.
+
+```bash
+export SHOPWAVE_TIMEOUT_ORDER_PLACEMENT_MS=5000
+export SHOPWAVE_TIMEOUT_STOCK_RESERVATION_MS=2000
+docker compose up --build
+```
+
+Bu ayarla:
+- bir sipariş akışı toplamda `5000ms` sınırını aşarsa işlem rollback olur
+- stok rezervasyonu tek başına `2000ms` sınırını aşarsa timeout hatası döner
+
 ## API Özeti
 
 ```bash

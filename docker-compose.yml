@@ -48,6 +48,9 @@ services:
     # SHOPWAVE_CHAOS_DELAY_FIXED_MS: "200"
     # SHOPWAVE_CHAOS_DELAY_JITTER_MS: "300"
     # SHOPWAVE_CHAOS_DELAY_TARGET_OPERATIONS: "placeOrder,reserveStock"
+    # LAB-4 placeholder — timeout / deadline ayarları
+    # SHOPWAVE_TIMEOUT_STOCK_RESERVATION_MS: "2000"
+    # SHOPWAVE_TIMEOUT_ORDER_PLACEMENT_MS: "5000"
     ports:
       - "8080:8080"
     # LAB-1 placeholder — structured logging aktif edilince buraya env var eklenecek

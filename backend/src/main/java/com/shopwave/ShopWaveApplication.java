@@ -1,6 +1,7 @@
 package com.shopwave;
 
 import com.shopwave.config.ChaosDelayProperties;
+import com.shopwave.config.TimeoutProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -21,7 +22,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  *   4. Resilience mekanizmaları (circuit breaker, retry, saga) eklenecek
  */
 @SpringBootApplication
-@EnableConfigurationProperties(ChaosDelayProperties.class)
+@EnableConfigurationProperties({ChaosDelayProperties.class, TimeoutProperties.class})
 public class ShopWaveApplication {
     public static void main(String[] args) {
         SpringApplication.run(ShopWaveApplication.class, args);

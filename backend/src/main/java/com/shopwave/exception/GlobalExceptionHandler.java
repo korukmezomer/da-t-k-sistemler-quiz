@@ -34,6 +34,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(OperationTimeoutException.class)
+    public ProblemDetail handleTimeout(OperationTimeoutException ex) {
+        return problem(HttpStatus.GATEWAY_TIMEOUT, ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         String errors = ex.getBindingResult().getFieldErrors().stream()

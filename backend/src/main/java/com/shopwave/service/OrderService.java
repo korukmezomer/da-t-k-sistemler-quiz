@@ -49,6 +49,7 @@ public class OrderService {
     private final InventoryService   inventoryService;
     private final AuditService       auditService;
     private final ChaosDelayService  chaosDelayService;
+    private final TimeoutGuardService timeoutGuardService;
 
     // ─── Queries ──────────────────────────────────────────────
 
@@ -83,53 +84,63 @@ public class OrderService {
     @Transactional
     public OrderDto placeOrder(PlaceOrderRequest req) {
         // TODO LAB-5: X-Idempotency-Key kontrolü
-        // TODO LAB-4: Timeout deadline — bu metot X ms'den uzun sürerse TimeoutException fırlat
-        chaosDelayService.injectDelay("placeOrder");
+        timeoutGuardService.startOrderDeadline();
+        try {
+            chaosDelayService.injectDelay("placeOrder");
+            timeoutGuardService.checkOrderDeadline("placeOrder delay");
 
-        Customer customer = customerRepository.findById(req.getCustomerId())
-                .orElseThrow(() -> new NotFoundException("Customer not found: " + req.getCustomerId()));
+            Customer customer = customerRepository.findById(req.getCustomerId())
+                    .orElseThrow(() -> new NotFoundException("Customer not found: " + req.getCustomerId()));
+            timeoutGuardService.checkOrderDeadline("customer lookup");
 
-        Order order = Order.builder()
-                .orderRef(generateOrderRef())
-                .customer(customer)
-                .status(OrderStatus.PENDING)
-                .shippingAddress(req.getShippingAddress())
-                .items(new ArrayList<>())
-                .build();
+            Order order = Order.builder()
+                    .orderRef(generateOrderRef())
+                    .customer(customer)
+                    .status(OrderStatus.PENDING)
+                    .shippingAddress(req.getShippingAddress())
+                    .items(new ArrayList<>())
+                    .build();
 
-        // Her sipariş kalemi için: ürünü bul, stok rezerve et, item ekle
-        for (PlaceOrderRequest.OrderItemRequest itemReq : req.getItems()) {
-            Product product = productRepository.findByIdWithLock(itemReq.getProductId())
-                    .orElseThrow(() -> new NotFoundException("Product not found: " + itemReq.getProductId()));
+            // Her sipariş kalemi için: ürünü bul, stok rezerve et, item ekle
+            for (PlaceOrderRequest.OrderItemRequest itemReq : req.getItems()) {
+                timeoutGuardService.checkOrderDeadline("product lookup");
+                Product product = productRepository.findByIdWithLock(itemReq.getProductId())
+                        .orElseThrow(() -> new NotFoundException("Product not found: " + itemReq.getProductId()));
 
-            if (!product.isActive()) {
-                throw new IllegalArgumentException("Product is not active: " + product.getSku());
+                if (!product.isActive()) {
+                    throw new IllegalArgumentException("Product is not active: " + product.getSku());
+                }
+
+                // InventoryService.reserve() bu transaction'a katılır.
+                // Dağıtık mimaride bu satır HTTP çağrısına dönüşecek → atomiklik bozulacak.
+                inventoryService.reserve(product.getId(), itemReq.getQuantity());
+                timeoutGuardService.checkOrderDeadline("inventory reservation");
+
+                OrderItem item = OrderItem.builder()
+                        .order(order)
+                        .product(product)
+                        .quantity(itemReq.getQuantity())
+                        .unitPrice(product.getPrice())
+                        .build();
+                order.getItems().add(item);
             }
 
-            // InventoryService.reserve() bu transaction'a katılır.
-            // Dağıtık mimaride bu satır HTTP çağrısına dönüşecek → atomiklik bozulacak.
-            inventoryService.reserve(product.getId(), itemReq.getQuantity());
+            timeoutGuardService.checkOrderDeadline("order total calculation");
+            order.recalculateTotal();
+            orderRepository.save(order);
+            timeoutGuardService.checkOrderDeadline("order persistence");
 
-            OrderItem item = OrderItem.builder()
-                    .order(order)
-                    .product(product)
-                    .quantity(itemReq.getQuantity())
-                    .unitPrice(product.getPrice())
-                    .build();
-            order.getItems().add(item);
+            auditService.log("ORDER_PLACED", "Order", order.getId(),
+                    "ref=" + order.getOrderRef() + " total=" + order.getTotalAmount()
+                    + " items=" + order.getItems().size());
+
+            log.info("Order placed ref={} customerId={} total={}",
+                    order.getOrderRef(), customer.getId(), order.getTotalAmount());
+
+            return toDto(order);
+        } finally {
+            timeoutGuardService.clearOrderDeadline();
         }
-
-        order.recalculateTotal();
-        orderRepository.save(order);
-
-        auditService.log("ORDER_PLACED", "Order", order.getId(),
-                "ref=" + order.getOrderRef() + " total=" + order.getTotalAmount()
-                + " items=" + order.getItems().size());
-
-        log.info("Order placed ref={} customerId={} total={}",
-                order.getOrderRef(), customer.getId(), order.getTotalAmount());
-
-        return toDto(order);
     }
 
     /** Siparişi onayla (ödeme alındı). */

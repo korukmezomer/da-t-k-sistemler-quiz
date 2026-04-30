@@ -32,6 +32,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final AuditService        auditService;
     private final ChaosDelayService   chaosDelayService;
+    private final TimeoutGuardService timeoutGuardService;
 
     // ─── Queries ──────────────────────────────────────────────
 
@@ -59,9 +60,15 @@ public class InventoryService {
      */
     @Transactional
     public void reserve(Long productId, int quantity) {
+        long reservationStartedAt = timeoutGuardService.startTimer();
         chaosDelayService.injectDelay("reserveStock");
+        timeoutGuardService.checkOrderDeadline("stock reservation delay");
+        timeoutGuardService.checkStockReservationTimeout(reservationStartedAt, productId);
+
         Inventory inv = inventoryRepository.findByProductIdWithLock(productId)
                 .orElseThrow(() -> new NotFoundException("Inventory not found: " + productId));
+        timeoutGuardService.checkOrderDeadline("stock reservation lock");
+        timeoutGuardService.checkStockReservationTimeout(reservationStartedAt, productId);
 
         if (!inv.canReserve(quantity)) {
             throw new InsufficientStockException(productId, inv.availableQuantity(), quantity);
@@ -69,6 +76,8 @@ public class InventoryService {
 
         inv.reserve(quantity);
         inventoryRepository.save(inv);
+        timeoutGuardService.checkOrderDeadline("stock reservation persistence");
+        timeoutGuardService.checkStockReservationTimeout(reservationStartedAt, productId);
 
         auditService.log("STOCK_RESERVED", "Inventory", productId,
                 "qty=" + quantity + " remaining=" + inv.availableQuantity());

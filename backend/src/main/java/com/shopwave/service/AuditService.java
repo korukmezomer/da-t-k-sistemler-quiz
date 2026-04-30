@@ -2,6 +2,7 @@ package com.shopwave.service;
 
 import com.shopwave.domain.AuditLog;
 import com.shopwave.repository.AuditLogRepository;
+import com.shopwave.web.RequestIdContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,12 +31,13 @@ public class AuditService {
 
     @Transactional(propagation = Propagation.REQUIRED)
     public void log(String eventType, String aggregate, Long aggregateId, String payload) {
-        // TODO LAB-1: MDC'deki correlation-id'yi payload'a ekle
+        String requestId = RequestIdContext.getCurrentRequestId();
+        String payloadWithRequestId = appendRequestId(payload, requestId);
         AuditLog entry = AuditLog.builder()
                 .eventType(eventType)
                 .aggregate(aggregate)
                 .aggregateId(aggregateId)
-                .payload(payload)
+                .payload(payloadWithRequestId)
                 .build();
         auditLogRepository.save(entry);
         log.info("AUDIT event={} aggregate={} id={}", eventType, aggregate, aggregateId);
@@ -47,5 +49,15 @@ public class AuditService {
 
     public List<AuditLog> getRecent() {
         return auditLogRepository.findTop100ByOrderByCreatedAtDesc();
+    }
+
+    private String appendRequestId(String payload, String requestId) {
+        if (requestId == null || requestId.isBlank()) {
+            return payload;
+        }
+        if (payload == null || payload.isBlank()) {
+            return "requestId=" + requestId;
+        }
+        return payload + " requestId=" + requestId;
     }
 }

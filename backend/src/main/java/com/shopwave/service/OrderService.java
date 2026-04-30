@@ -50,6 +50,7 @@ public class OrderService {
     private final AuditService       auditService;
     private final ChaosDelayService  chaosDelayService;
     private final TimeoutGuardService timeoutGuardService;
+    private final IdempotencyService idempotencyService;
 
     // ─── Queries ──────────────────────────────────────────────
 
@@ -82,8 +83,11 @@ public class OrderService {
      * Stok rezervasyonu ve sipariş kaydı atomik — ya hepsi, ya hiçbiri.
      */
     @Transactional
-    public OrderDto placeOrder(PlaceOrderRequest req) {
-        // TODO LAB-5: X-Idempotency-Key kontrolü
+    public OrderDto placeOrder(PlaceOrderRequest req, String idempotencyKey) {
+        return idempotencyService.executeOrderCreation(idempotencyKey, req, () -> placeOrderInternal(req));
+    }
+
+    private OrderDto placeOrderInternal(PlaceOrderRequest req) {
         timeoutGuardService.startOrderDeadline();
         try {
             chaosDelayService.injectDelay("placeOrder");

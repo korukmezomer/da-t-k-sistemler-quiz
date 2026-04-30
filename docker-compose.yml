@@ -51,6 +51,9 @@ services:
     # LAB-4 placeholder — timeout / deadline ayarları
     # SHOPWAVE_TIMEOUT_STOCK_RESERVATION_MS: "2000"
     # SHOPWAVE_TIMEOUT_ORDER_PLACEMENT_MS: "5000"
+    # LAB-5 placeholder — idempotency
+    # SHOPWAVE_IDEMPOTENCY_ENABLED: "true"
+    # SHOPWAVE_IDEMPOTENCY_TTL_SECONDS: "300"
     ports:
       - "8080:8080"
     # LAB-1 placeholder — structured logging aktif edilince buraya env var eklenecek

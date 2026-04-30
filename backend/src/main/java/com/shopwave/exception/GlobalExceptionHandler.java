@@ -6,6 +6,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.shopwave.web.RequestIdContext;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -34,6 +35,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(IdempotencyConflictException ex) {
+        return problem(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(OperationTimeoutException.class)
     public ProblemDetail handleTimeout(OperationTimeoutException ex) {
         return problem(HttpStatus.GATEWAY_TIMEOUT, ex.getMessage());
@@ -56,7 +62,7 @@ public class GlobalExceptionHandler {
     private ProblemDetail problem(HttpStatus status, String detail) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
         pd.setProperty("timestamp", Instant.now().toString());
-        // TODO LAB-1: correlation-id'yi buraya ekle → her hata yanıtında görünsün
+        pd.setProperty("requestId", RequestIdContext.getCurrentRequestId());
         return pd;
     }
 }

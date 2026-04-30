@@ -59,6 +59,22 @@ Bu ayarla:
 - bir sipariş akışı toplamda `5000ms` sınırını aşarsa işlem rollback olur
 - stok rezervasyonu tek başına `2000ms` sınırını aşarsa timeout hatası döner
 
+## LAB-5: Idempotency ve Request ID
+
+`POST /api/v1/orders` isteğinde `X-Idempotency-Key` gönderilirse aynı payload ile tekrar gelen istekler aynı sonucu döndürür.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/orders \
+  -H 'Content-Type: application/json' \
+  -H 'X-Idempotency-Key: order-123' \
+  -d '{"customerId":1,"shippingAddress":"Istanbul","items":[{"productId":1,"quantity":1}]}'
+```
+
+Tüm isteklerde sunucu bir `X-Request-ID` üretir veya gelen `X-Request-ID` / `X-Correlation-ID` değerini aynen devam ettirir. Bu değer:
+- response header'larında döner
+- hata yanıtlarına `requestId` olarak eklenir
+- audit payload içine yazılır
+
 ## API Özeti
 
 ```bash
